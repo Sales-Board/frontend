@@ -8,7 +8,6 @@ import {
   MobileSidebar,
   MobileMenuButton,
 } from "./sidebar";
-import { BrandIcon } from "./brand";
 import { ChevronRight, RefreshCw } from "lucide-react";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {

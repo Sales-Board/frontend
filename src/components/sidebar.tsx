@@ -21,18 +21,24 @@ import {
   Menu,
 } from "lucide-react";
 import { BrandIcon, BrandWordmark } from "./brand";
+import { ApiStatus } from "./api-status";
 
 /* ------------------------------------------------------------------ */
 /*  Navigation Groups                                                  */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Navigation targets the modules the backend actually exposes. Counts are not
+ * hardcoded here — badges would need a live figure, and the nav renders before
+ * any data is fetched.
+ */
 export const NAV_GROUPS = [
   {
     group: "Sales",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Leads", href: "/leads", icon: Users, badge: "142" },
-      { label: "Deals", href: "/deals", icon: Briefcase },
+      { label: "Leads", href: "/leads", icon: Users },
+      { label: "Accounts", href: "/accounts", icon: Briefcase },
       { label: "Pipeline", href: "/pipeline", icon: GitPullRequest },
     ],
   },
@@ -45,10 +51,10 @@ export const NAV_GROUPS = [
     ],
   },
   {
-    group: "Management",
+    group: "Operations",
     items: [
-      { label: "Sales Team", href: "/team", icon: TrendingUp },
-      { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Workload", href: "/workload", icon: TrendingUp },
+      { label: "System", href: "/system", icon: Settings },
     ],
   },
 ];
@@ -93,7 +99,7 @@ export const CircularProgress = ({ value, max }: { value: number; max: number })
 };
 
 export const UserAvatar = ({
-  initials = "RV",
+  initials = "··",
   size = "md",
 }: {
   initials?: string;
@@ -120,7 +126,7 @@ export function LeftRail() {
   const railItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Leads", href: "/leads", icon: Users },
-    { label: "Deals", href: "/deals", icon: Briefcase },
+    { label: "Accounts", href: "/accounts", icon: Briefcase },
     { label: "AI Copilot", href: "/ai-assistant", icon: Sparkles },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
   ];
@@ -168,7 +174,7 @@ export function LeftRail() {
       {/* Bottom utilities: Settings + User Avatar Popover */}
       <div className="flex flex-col items-center gap-2 relative">
         <Link
-          href="/settings"
+          href="/system"
           title="Settings"
           className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
         >
@@ -182,7 +188,7 @@ export function LeftRail() {
           onClick={() => setProfileOpen(!profileOpen)}
           className="relative cursor-pointer transition-transform hover:scale-105"
         >
-          <UserAvatar initials="RV" size="md" />
+          <UserAvatar size="md" />
           <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
         </button>
 
@@ -200,25 +206,25 @@ export function LeftRail() {
                 <UserAvatar size="sm" />
                 <div className="min-w-0">
                   <span className="font-semibold text-slate-900 block truncate">
-                    Rajesh Varma
+                    Local session
                   </span>
                   <span className="text-[11px] text-slate-500 block truncate">
-                    CCO — Mumbai
+                    No authentication configured
                   </span>
                 </div>
               </div>
 
               <div className="py-2 space-y-0.5">
                 <Link
-                  href="/team"
+                  href="/workload"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
                   <User className="h-3.5 w-3.5" />
-                  Sales Quota
+                  Workload
                 </Link>
                 <Link
-                  href="/settings"
+                  href="/system"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                 >
@@ -296,12 +302,6 @@ export function SecondarySidebar() {
                         <span className="truncate">{item.label}</span>
                       </div>
 
-                      {item.badge && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 font-semibold">
-                          {item.badge}
-                        </span>
-                      )}
-
                       {isActive && (
                         <span className="w-1 h-3.5 rounded-full bg-blue-600 shrink-0 ml-1.5" />
                       )}
@@ -314,21 +314,8 @@ export function SecondarySidebar() {
         </div>
       </div>
 
-      {/* Target Progress Box */}
-      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-            Monthly Target
-          </span>
-          <CircularProgress value={78} max={100} />
-        </div>
-        <p className="text-[12px] text-slate-900 font-semibold leading-snug">
-          78% Attained (₹4.82 Cr)
-        </p>
-        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-          <div className="bg-blue-600 h-full rounded-full w-[78%] transition-all" />
-        </div>
-      </div>
+      {/* Live backend health — the backend stores no revenue or quota data. */}
+      <ApiStatus />
     </aside>
   );
 }
@@ -404,11 +391,6 @@ export function MobileSidebar({
                             <Icon className="h-4 w-4" />
                             <span>{item.label}</span>
                           </div>
-                          {item.badge && (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">
-                              {item.badge}
-                            </span>
-                          )}
                         </Link>
                       );
                     })}
@@ -418,7 +400,7 @@ export function MobileSidebar({
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-              <span className="font-semibold">Rajesh Varma</span>
+              <span className="font-semibold">Local session</span>
               <button
                 onClick={() => {
                   alert("Signed out");

@@ -1,73 +1,143 @@
 import React from "react";
-import { getProductPerformance, getDashboardSummary } from "@/dal/sales-dal";
-import { RevenueTrendChart, ProductDistributionChart } from "@/components/dashboard-charts";
-import { MapPin } from "lucide-react";
+import { getAnalyticsView } from "@/dal/analytics";
+import { FunnelChart, ChannelChart } from "@/components/analytics-charts";
+import { IssueBanner, TableEmptyRow } from "@/components/states";
+import { formatNumber, formatPercent, humanize } from "@/lib/format";
 
+/**
+ * Analytics — funnel, channel mix, campaign conversion and engagement volume.
+ * See `getAnalyticsView` for the routes behind each block.
+ *
+ * There is no time series here: the backend stores no historical snapshots, so
+ * month-over-month movement cannot be computed from its data.
+ */
 export default async function AnalyticsPage() {
-  const [products, summary] = await Promise.all([
-    getProductPerformance(),
-    getDashboardSummary(),
-  ]);
+  const data = await getAnalyticsView();
 
-  const regional = [
-    { name: "West (Mumbai & Pune)", rev: "₹2.10 Cr", target: "₹1.90 Cr", pct: 110.5 },
-    { name: "North (Delhi NCR & UP)", rev: "₹1.35 Cr", target: "₹1.40 Cr", pct: 96.4 },
-    { name: "South (Bengaluru & Chennai)", rev: "₹0.95 Cr", target: "₹0.85 Cr", pct: 111.7 },
-    { name: "East (Kolkata & Odisha)", rev: "₹0.42 Cr", target: "₹0.45 Cr", pct: 93.3 },
+  const summary = [
+    { label: "Customers", value: data.overview.total_customers },
+    { label: "Leads", value: data.overview.total_leads },
+    { label: "Campaigns", value: data.overview.total_campaigns },
+    { label: "Calls", value: data.overview.total_calls },
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-slate-200">
+    <div className="animate-in space-y-6 duration-200 fade-in">
+      <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end">
         <div>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 block mb-1">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-blue-600">
             Analytics
           </span>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900">
-            Sales Velocity & Regional Performance
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+            Funnel, Channels & Campaigns
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Territory quota attainment, product share breakdown, and monthly pacing.
+          <p className="mt-1 text-xs text-slate-500">
+            Aggregates across the lead, engagement and campaign modules.
           </p>
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {regional.map((r, idx) => (
+      <IssueBanner issues={data.issues} />
+
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+        {summary.map((item) => (
           <div
-            key={idx}
-            className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs flex flex-col justify-between"
+            key={item.label}
+            className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs"
           >
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 text-blue-600" /> {r.name.split(" ")[0]}
-                </span>
-                <span className="text-xs font-bold text-blue-600 tabular-nums">
-                  {r.pct}%
-                </span>
-              </div>
-              <span className="text-xl font-bold text-slate-900 block tabular-nums">
-                {r.rev}
-              </span>
-            </div>
-
-            <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Target: {r.target}</span>
-              <span className="text-emerald-700 font-semibold">+14.2% YoY</span>
-            </div>
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {item.label}
+            </span>
+            <span className="mt-1 block text-xl font-bold tabular-nums text-slate-900">
+              {formatNumber(item.value)}
+            </span>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <RevenueTrendChart data={summary.monthlyTrends} />
-        </div>
-        <div className="lg:col-span-1">
-          <ProductDistributionChart data={summary.productDistribution} />
-        </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <FunnelChart data={data.funnel} />
+        <ChannelChart data={data.channels} />
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <h3 className="pb-4 text-sm font-semibold text-slate-900">
+          Engagement volume by channel
+        </h3>
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+          {data.engagement.map((item) => (
+            <div
+              key={item.channel}
+              className="rounded-lg border border-slate-200 bg-slate-50/60 p-3.5"
+            >
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                {humanize(item.channel)}
+              </span>
+              <span className="mt-1 block text-lg font-bold tabular-nums text-slate-900">
+                {formatNumber(item.events)}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {formatNumber(item.metricSum)} engaged
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="pt-3 text-[11px] text-slate-500">
+          Counts reflect up to 500 most recent events per channel, read from
+          /api/engagement/*.
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <h3 className="pb-4 text-sm font-semibold text-slate-900">
+          Campaign performance
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-100 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th className="pb-3 pr-4">Campaign</th>
+                <th className="px-4 pb-3">Code</th>
+                <th className="px-4 pb-3">Channel</th>
+                <th className="px-4 pb-3">Leads</th>
+                <th className="px-4 pb-3">Converted</th>
+                <th className="pb-3 pl-4 text-right">Conversion</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-xs">
+              {data.campaigns.length === 0 ? (
+                <TableEmptyRow colSpan={6} message="No campaign data available." />
+              ) : (
+                data.campaigns.map((campaign) => (
+                  <tr
+                    key={campaign.id}
+                    className="transition-colors hover:bg-slate-50/80"
+                  >
+                    <td className="max-w-[240px] truncate py-3 pr-4 font-semibold text-slate-900">
+                      {campaign.name}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500">
+                      {campaign.code}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {humanize(campaign.channel)}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-slate-900">
+                      {formatNumber(campaign.leadCount)}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-emerald-700">
+                      {formatNumber(campaign.convertedLeads)}
+                    </td>
+                    <td className="py-3 pl-4 text-right font-semibold tabular-nums text-slate-900">
+                      {formatPercent(campaign.conversionPct)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
