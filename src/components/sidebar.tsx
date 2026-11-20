@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Settings,
   HelpCircle,
+  Upload,
   LogOut,
   User,
   X,
@@ -55,6 +56,7 @@ export const NAV_GROUPS = [
   {
     group: "Operations",
     items: [
+      { label: "Load", href: "/load", icon: Upload },
       { label: "Workload", href: "/workload", icon: TrendingUp },
       { label: "System", href: "/system", icon: Settings },
     ],

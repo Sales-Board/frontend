@@ -54,7 +54,8 @@ async function proxy(
   const body = hasBody ? await request.text() : undefined;
 
   const isChatRequest = path[0] === "ai" && path[1] === "chat";
-  const timeoutMs = isChatRequest
+  const isDataLoadRequest = path[0] === "data" && path[1] === "load";
+  const timeoutMs = isChatRequest || isDataLoadRequest
     ? Math.max(Number(process.env.API_TIMEOUT_MS ?? 15_000), 120_000)
     : Number(process.env.API_TIMEOUT_MS ?? 15_000);
 
