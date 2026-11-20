@@ -23,9 +23,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const getBreadcrumbs = () => {
     const segments = pathname.split("/").filter(Boolean);
     if (segments.length === 0) return ["Dashboard"];
-    return segments.map(
-      (s) => s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")
-    );
+    return segments.map((segment) => {
+      if (segment === "ai-assistant") return "Predictions";
+      if (segment === "agent") return "AI Copilot";
+      return segment.charAt(0).toUpperCase() + segment.slice(1).replace("-", " ");
+    });
   };
 
   const breadcrumbs = getBreadcrumbs();

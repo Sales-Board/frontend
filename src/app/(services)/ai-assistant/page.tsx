@@ -4,7 +4,7 @@ import { LeadAnalyzer } from "@/components/lead-analyzer";
 import { EmptyState, IssueBanner } from "@/components/states";
 
 /**
- * AI Copilot — runs the prediction and decision endpoints against a chosen lead.
+ * Predictions — runs the prediction and decision endpoints against a chosen lead.
  *
  * This is not a chat assistant. The backend's AI surface is a set of scoring
  * routes (validity, intent, conversion, product fit, lead score, segment, next
@@ -22,10 +22,10 @@ export default async function AICopilotPage() {
             Intelligence
           </span>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
-            AI Copilot
+            Predictions
           </h1>
           <p className="mt-1 text-xs text-slate-500">
-            Score a lead across every prediction type, then ask the decision
+            Score leads across every prediction type, then ask the decision
             engine for the next action.
           </p>
         </div>
