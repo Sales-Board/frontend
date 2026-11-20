@@ -12,13 +12,11 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-
-interface ChatModel {
-  provider: string;
-  model_id: string;
-  name: string;
-  configured: boolean;
-}
+import {
+  AIChatModelPicker,
+  CHAT_MODEL_OPTIONS,
+} from "@/components/ai-chat-model-picker";
+import type { ChatModel } from "@/components/ai-chat-model-picker";
 
 interface ChatConversation {
   id: number;
@@ -50,14 +48,6 @@ interface ChatTurn {
 
 const CHAT_API = "/api/ai/chat";
 const INITIAL_MODEL = "openai/gpt-oss-20b";
-const MODEL_OPTIONS: ChatModel[] = [
-  { provider: "groq", model_id: "openai/gpt-oss-20b", name: "GPT OSS 20B", configured: false },
-  { provider: "groq", model_id: "openai/gpt-oss-120b", name: "GPT OSS 120B", configured: false },
-  { provider: "groq", model_id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", configured: false },
-  { provider: "google", model_id: "gemini-3.8-flash", name: "Gemini 3.8 Flash", configured: false },
-  { provider: "google", model_id: "gemini-3.6-flash", name: "Gemini 3.6 Flash", configured: false },
-  { provider: "google", model_id: "gemini-3.5-flash-lite", name: "Gemini 3.5 Flash-Lite", configured: false },
-];
 const SUGGESTIONS = [
   "Summarize our current lead pipeline",
   "Which lead statuses should we focus on?",
@@ -214,7 +204,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function AIAgentChat() {
-  const [models, setModels] = useState<ChatModel[]>(MODEL_OPTIONS);
+  const [models, setModels] = useState<ChatModel[]>(CHAT_MODEL_OPTIONS);
   const [modelStatusLoaded, setModelStatusLoaded] = useState(false);
   const [modelStatusAvailable, setModelStatusAvailable] = useState(false);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -237,7 +227,7 @@ export function AIAgentChat() {
           availableModels.map((model) => [model.model_id, model.configured]),
         );
         setModels(
-          MODEL_OPTIONS.map((model) => ({
+          CHAT_MODEL_OPTIONS.map((model) => ({
             ...model,
             configured: statusById.get(model.model_id) ?? false,
           })),
@@ -478,36 +468,11 @@ export function AIAgentChat() {
                 : conversations.find((item) => item.id === conversationId)?.title ?? "Saved chat"}
             </h2>
           </div>
-          <label className="flex min-w-0 items-center gap-2">
-            <span className="hidden text-[10px] font-medium uppercase tracking-wide text-slate-500 md:inline">
-              Model
-            </span>
-            <select
-              value={modelId}
-              onChange={(event) => setModelId(event.target.value)}
-              aria-label="Select AI model"
-              className="max-w-[180px] rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-700 outline-none focus:border-blue-500 sm:max-w-[230px]"
-            >
-              <optgroup label="Groq">
-                {models
-                  .filter((model) => model.provider === "groq")
-                  .map((model) => (
-                    <option key={model.model_id} value={model.model_id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="Google Gemini">
-                {models
-                  .filter((model) => model.provider === "google")
-                  .map((model) => (
-                    <option key={model.model_id} value={model.model_id}>
-                      {model.name}
-                    </option>
-                  ))}
-              </optgroup>
-            </select>
-          </label>
+          <AIChatModelPicker
+            models={models}
+            modelId={modelId}
+            onChange={setModelId}
+          />
         </header>
 
         {conversations.length > 0 ? (
