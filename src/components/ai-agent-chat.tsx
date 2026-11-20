@@ -240,7 +240,7 @@ export function AIAgentChat() {
   const hasConfiguredModel = models.some((model) => model.configured);
 
   return (
-    <section className="flex h-[min(680px,calc(100vh-17rem))] min-h-[430px] overflow-hidden rounded-xl bg-white">
+    <section className="flex h-full min-h-[430px] overflow-hidden rounded-xl bg-white">
       <AIChatHistory
         conversations={conversations}
         conversationId={conversationId}

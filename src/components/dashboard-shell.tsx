@@ -31,6 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   const breadcrumbs = getBreadcrumbs();
+  const isAgentPage = pathname === "/agent";
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-slate-50 flex antialiased selection:bg-blue-100 selection:text-blue-900">
@@ -94,8 +95,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Scrollable Page Body */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50">
-          <div className="max-w-6xl mx-auto space-y-6">
+        <main
+          className={`min-h-0 flex-1 overflow-y-auto ${
+            isAgentPage ? "px-4 py-0 sm:px-6 lg:px-8" : "p-4 sm:p-6 lg:p-8"
+          } bg-slate-50`}
+        >
+          <div
+            className={`mx-auto max-w-6xl ${
+              isAgentPage ? "h-full min-h-0" : "space-y-6"
+            }`}
+          >
             {children}
           </div>
         </main>
