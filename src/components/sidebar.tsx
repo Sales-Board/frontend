@@ -10,6 +10,7 @@ import {
   Briefcase,
   GitPullRequest,
   Sparkles,
+  ChartNoAxesCombined,
   BarChart3,
   FileText,
   TrendingUp,
@@ -45,7 +46,8 @@ export const NAV_GROUPS = [
   {
     group: "Intelligence",
     items: [
-      { label: "AI Copilot", href: "/ai-assistant", icon: Sparkles },
+      { label: "AI Copilot", href: "/agent", icon: Sparkles },
+      { label: "Predictions", href: "/ai-assistant", icon: ChartNoAxesCombined },
       { label: "Analytics", href: "/analytics", icon: BarChart3 },
       { label: "Reports", href: "/reports", icon: FileText },
     ],
@@ -127,7 +129,8 @@ export function LeftRail() {
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Leads", href: "/leads", icon: Users },
     { label: "Accounts", href: "/accounts", icon: Briefcase },
-    { label: "AI Copilot", href: "/ai-assistant", icon: Sparkles },
+    { label: "AI Copilot", href: "/agent", icon: Sparkles },
+    { label: "Predictions", href: "/ai-assistant", icon: ChartNoAxesCombined },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
   ];
 
