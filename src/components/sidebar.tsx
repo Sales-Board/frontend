@@ -125,14 +125,12 @@ export function LeftRail() {
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const railItems = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Leads", href: "/leads", icon: Users },
-    { label: "Accounts", href: "/accounts", icon: Briefcase },
-    { label: "AI Copilot", href: "/agent", icon: Sparkles },
-    { label: "Predictions", href: "/ai-assistant", icon: ChartNoAxesCombined },
-    { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  ];
+  const railItems = NAV_GROUPS.map(({ group, items }) => ({
+    label: group,
+    href: items[0].href,
+    icon: items[0].icon,
+    activeHrefs: items.map((item) => item.href),
+  }));
 
   return (
     <aside className="hidden lg:flex w-14 shrink-0 h-screen flex-col items-center py-4 justify-between border-r border-slate-200 bg-slate-50/70 select-none z-30">
@@ -148,10 +146,9 @@ export function LeftRail() {
         <nav className="flex flex-col gap-1.5">
           {railItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
+            const isActive = item.activeHrefs.some(
+              (href) => pathname === href || pathname.startsWith(`${href}/`),
+            );
 
             return (
               <Link

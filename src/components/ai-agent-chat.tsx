@@ -241,27 +241,26 @@ export function AIAgentChat() {
 
   return (
     <section className="flex h-full min-h-[430px] overflow-hidden rounded-xl bg-white">
-      <AIChatHistory
-        conversations={conversations}
-        conversationId={conversationId}
-        isLoading={isLoadingHistory}
-        deletingConversationId={deletingConversationId}
-        onNewChat={startNewChat}
-        onOpen={(id) => void openConversation(id)}
-        onDelete={(id) => void removeConversation(id)}
-      />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 px-3 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+            <AIChatHistory
+              conversations={conversations}
+              conversationId={conversationId}
+              isLoading={isLoadingHistory}
+              deletingConversationId={deletingConversationId}
+              onOpen={(id) => void openConversation(id)}
+              onDelete={(id) => void removeConversation(id)}
+            />
             <button
               type="button"
               onClick={startNewChat}
               aria-label="Start a new chat"
               title="New chat"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 sm:hidden"
+              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-slate-500 transition hover:bg-slate-100"
             >
               <Plus className="h-4 w-4" />
+              <span className="hidden text-xs sm:inline">New chat</span>
             </button>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
               <Sparkles className="h-4 w-4" aria-hidden="true" />
