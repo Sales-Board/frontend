@@ -26,15 +26,15 @@ export function AIChatModelPicker({
   onChange: (modelId: string) => void;
 }) {
   return (
-    <label className="flex min-w-0 items-center gap-2">
-      <span className="hidden text-[10px] font-medium uppercase tracking-wide text-slate-500 md:inline">
+    <label className="ml-auto flex min-w-0 items-center gap-1">
+      <span className="text-[10px] font-medium text-slate-500">
         Model
       </span>
       <select
         value={modelId}
         onChange={(event) => onChange(event.target.value)}
         aria-label="Select AI model"
-        className="max-w-[180px] rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-700 outline-none focus:border-blue-500 sm:max-w-[230px]"
+        className="max-w-[170px] rounded-lg border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 outline-none focus:border-blue-500 sm:max-w-[200px]"
       >
         <optgroup label="Groq">
           {models
