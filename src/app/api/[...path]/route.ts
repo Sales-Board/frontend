@@ -53,6 +53,11 @@ async function proxy(
   const hasBody = request.method === "POST" || request.method === "PATCH";
   const body = hasBody ? await request.text() : undefined;
 
+  const isChatRequest = path[0] === "ai" && path[1] === "chat";
+  const timeoutMs = isChatRequest
+    ? Math.max(Number(process.env.API_TIMEOUT_MS ?? 15_000), 120_000)
+    : Number(process.env.API_TIMEOUT_MS ?? 15_000);
+
   let upstream: Response;
   try {
     upstream = await fetch(target, {
@@ -60,14 +65,14 @@ async function proxy(
       headers,
       body: body || undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(Number(process.env.API_TIMEOUT_MS ?? 15_000)),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     return Response.json(
       {
         detail: timedOut
-          ? "The backend did not respond in time."
+          ? `The backend did not respond in time (${timeoutMs}ms).`
           : `Cannot reach the backend at ${API_BASE_URL}. Is it running?`,
       },
       { status: 504 },
