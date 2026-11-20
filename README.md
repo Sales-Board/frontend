@@ -67,7 +67,8 @@ against an API that is not running.
 | `/workload` | `/reports/workload`, `/leads`, `/tasks`, `/followups` |
 | `/reports` | `/reports/*`, `/data/export`, `/data/history` |
 | `/system` | `/health`, `/data/quality`, `/data/validation`, `/ml/*` |
-| `/ai-assistant` | `/ai/*`, `/decision/next-action` |
+| `/agent` | `/ai/chat/*` (AI Copilot conversations grounded in backend sales data) |
+| `/ai-assistant` | `/ai/*`, `/decision/next-action` (lead scoring and predictions) |
 
 ## What the data does and does not contain
 
@@ -76,6 +77,11 @@ demographics (age band, income band, occupation, education). There are **no**
 names, email addresses, phone numbers, premiums or revenue figures, and no user
 or team records — lead ownership is the `current_handler` string on the lead.
 The UI shows the fields that exist rather than synthesizing the ones that do not.
+
+The AI Copilot sends prompts and a bounded database summary to the selected
+Groq or Google Gemini model. Configure `GROQ_API_KEY` and/or `GOOGLE_API_KEY`
+in `backend/.env`; provider keys are never sent to the browser. Provider free
+tiers, model availability, and request limits may change.
 
 ## Scripts
 
