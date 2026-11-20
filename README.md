@@ -65,6 +65,7 @@ against an API that is not running.
 | `/accounts` | `/customers`, `/leads`, `/products`, `/campaigns` |
 | `/analytics` | `/analytics/*`, `/reports/campaign-performance`, `/engagement/*` |
 | `/workload` | `/reports/workload`, `/leads`, `/tasks`, `/followups` |
+| `/load` | `/data/load/datasets`, `/data/load/preview`, `/data/load/apply`, `/data/history` |
 | `/reports` | `/reports/*`, `/data/export`, `/data/history` |
 | `/system` | `/health`, `/data/quality`, `/data/validation`, `/ml/*` |
 | `/agent` | `/ai/chat/*` (AI Copilot conversations grounded in backend sales data) |
