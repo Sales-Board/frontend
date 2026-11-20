@@ -41,8 +41,9 @@ const CHAT_API = "/api/ai/chat";
 const INITIAL_MODEL = "openai/gpt-oss-20b";
 const SUGGESTIONS = [
   "Summarize our current lead pipeline",
-  "Which lead statuses should we focus on?",
-  "What products and campaigns are in the database?",
+  "Graph lead creation by month",
+  "Compare campaign conversion rates",
+  "What should we know about our predictions?",
 ];
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {

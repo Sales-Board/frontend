@@ -1,5 +1,17 @@
 import type { ReactNode } from "react";
 
+interface ChartPoint {
+  label: string;
+  value: number;
+}
+
+interface ChatChart {
+  type: "bar" | "line";
+  title: string;
+  metric: string;
+  data: ChartPoint[];
+}
+
 function renderInlineMarkdown(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
   const pattern = /\*\*(.+?)\*\*|`([^`]+)`/g;
@@ -31,6 +43,157 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   return parts;
 }
 
+function parseChart(value: unknown): ChatChart | null {
+  if (!value || typeof value !== "object") return null;
+  const chart = value as Record<string, unknown>;
+  if (
+    (chart.type !== "bar" && chart.type !== "line") ||
+    typeof chart.title !== "string" ||
+    typeof chart.metric !== "string" ||
+    !Array.isArray(chart.data) ||
+    chart.data.length === 0 ||
+    chart.data.length > 24
+  ) {
+    return null;
+  }
+
+  const data = chart.data.filter(
+    (point): point is ChartPoint =>
+      !!point &&
+      typeof point === "object" &&
+      typeof (point as Record<string, unknown>).label === "string" &&
+      typeof (point as Record<string, unknown>).value === "number" &&
+      Number.isFinite((point as Record<string, number>).value) &&
+      (point as Record<string, number>).value >= 0,
+  );
+  if (data.length !== chart.data.length) return null;
+
+  return {
+    type: chart.type,
+    title: chart.title,
+    metric: chart.metric,
+    data,
+  };
+}
+
+function ChatChartView({ chart }: { chart: ChatChart }) {
+  const width = Math.max(620, chart.data.length * 64);
+  const height = 270;
+  const left = 46;
+  const right = width - 18;
+  const top = 18;
+  const bottom = height - 42;
+  const maxValue = Math.max(1, ...chart.data.map((point) => point.value));
+  const formatValue = (value: number) =>
+    Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const slot = (right - left) / chart.data.length;
+  const points = chart.data.map((point, index) => ({
+    ...point,
+    x: left + slot * (index + 0.5),
+    y: bottom - (point.value / maxValue) * (bottom - top),
+  }));
+  const linePoints = points.map((point) => `${point.x},${point.y}`).join(" ");
+
+  return (
+    <figure className="my-4 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+      <figcaption className="mb-3 text-sm font-semibold text-slate-800">
+        {chart.title}
+        <span className="ml-2 text-xs font-normal text-slate-500">
+          {chart.metric}
+        </span>
+      </figcaption>
+      <div className="overflow-x-auto">
+        <svg
+          role="img"
+          aria-label={`${chart.title}, ${chart.metric}`}
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-[250px] w-full min-w-[620px]"
+        >
+          {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+            const y = bottom - fraction * (bottom - top);
+            return (
+              <g key={fraction}>
+                <line
+                  x1={left}
+                  x2={right}
+                  y1={y}
+                  y2={y}
+                  stroke="#e2e8f0"
+                  strokeDasharray={fraction === 0 ? undefined : "3 4"}
+                />
+                <text
+                  x={left - 8}
+                  y={y + 4}
+                  textAnchor="end"
+                  fill="#64748b"
+                  fontSize="10"
+                >
+                  {formatValue(maxValue * fraction)}
+                </text>
+              </g>
+            );
+          })}
+          {chart.type === "bar" ? (
+            points.map((point) => (
+              <g key={point.label}>
+                <rect
+                  x={point.x - slot * 0.28}
+                  y={point.y}
+                  width={slot * 0.56}
+                  height={Math.max(1, bottom - point.y)}
+                  rx="4"
+                  fill="#2563eb"
+                >
+                  <title>{`${point.label}: ${formatValue(point.value)}`}</title>
+                </rect>
+                <text
+                  x={point.x}
+                  y={bottom + 17}
+                  textAnchor="middle"
+                  fill="#64748b"
+                  fontSize="10"
+                >
+                  <title>{point.label}</title>
+                  {point.label.length > 12
+                    ? `${point.label.slice(0, 11)}…`
+                    : point.label}
+                </text>
+              </g>
+            ))
+          ) : (
+            <>
+              <polyline
+                points={linePoints}
+                fill="none"
+                stroke="#2563eb"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              {points.map((point) => (
+                <g key={point.label}>
+                  <circle cx={point.x} cy={point.y} r="4" fill="#2563eb">
+                    <title>{`${point.label}: ${formatValue(point.value)}`}</title>
+                  </circle>
+                  <text
+                    x={point.x}
+                    y={bottom + 17}
+                    textAnchor="middle"
+                    fill="#64748b"
+                    fontSize="10"
+                  >
+                    {point.label}
+                  </text>
+                </g>
+              ))}
+            </>
+          )}
+        </svg>
+      </div>
+    </figure>
+  );
+}
+
 export function AIChatResponse({ content }: { content: string }) {
   const lines = content.split(/\r?\n/);
   const blocks: ReactNode[] = [];
@@ -40,6 +203,33 @@ export function AIChatResponse({ content }: { content: string }) {
     const line = lines[index].trim();
     if (!line) {
       index += 1;
+      continue;
+    }
+
+    if (line === "```salesboard-chart") {
+      const start = index + 1;
+      let end = start;
+      while (end < lines.length && lines[end].trim() !== "```") end += 1;
+      const rawChart = lines.slice(start, end).join("\n");
+      let chart: ChatChart | null = null;
+      try {
+        chart = parseChart(JSON.parse(rawChart));
+      } catch {
+        chart = null;
+      }
+      if (chart) {
+        blocks.push(<ChatChartView key={`chart-${index}`} chart={chart} />);
+      } else {
+        blocks.push(
+          <pre
+            key={`chart-error-${index}`}
+            className="my-3 overflow-x-auto rounded-lg bg-slate-100 p-3 text-xs text-slate-700"
+          >
+            {rawChart}
+          </pre>,
+        );
+      }
+      index = end < lines.length ? end + 1 : end;
       continue;
     }
 

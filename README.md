@@ -83,10 +83,15 @@ names, email addresses, phone numbers, premiums or revenue figures, and no user
 or team records — lead ownership is the `current_handler` string on the lead.
 The UI shows the fields that exist rather than synthesizing the ones that do not.
 
-The AI Copilot sends prompts and a bounded database summary to the selected
-Groq or Google Gemini model. Configure `GROQ_API_KEY` and/or `GOOGLE_API_KEY`
-in `backend/.env`; provider keys are never sent to the browser. Provider free
-tiers, model availability, and request limits may change.
+The AI Copilot sends prompts and a live, read-only analytics snapshot to the
+selected Groq or Google Gemini model. It includes whole-database counts and
+grouped pipeline, campaign, customer, activity, outcome, and prediction metrics;
+explicit lead or customer ID questions also receive matching status, assignment,
+campaign, product, and stored prediction details, without personal contact fields.
+Requests for charts include a graph built from database values. Existing scores
+are indicators, not calibrated forecasts. Configure `GROQ_API_KEY` and/or
+`GOOGLE_API_KEY` in `backend/.env`; provider keys are never sent to the browser.
+Provider free tiers, model availability, and request limits may change.
 
 ## Scripts
 
