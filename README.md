@@ -65,11 +65,15 @@ against an API that is not running.
 | `/accounts` | `/customers`, `/leads`, `/products`, `/campaigns` |
 | `/analytics` | `/analytics/*`, `/reports/campaign-performance`, `/engagement/*` |
 | `/workload` | `/reports/workload`, `/leads`, `/tasks`, `/followups` |
-| `/load` | `/data/load/datasets`, `/data/load/preview`, `/data/load/apply`, `/data/history` |
+| `/load` | `/data/load/datasets`, `/data/load/preview`, `/data/load/apply`, `/data/load/pipeline/*`, `/data/history` |
 | `/reports` | `/reports/*`, `/data/export`, `/data/history` |
 | `/system` | `/health`, `/data/quality`, `/data/validation`, `/ml/*` |
 | `/agent` | `/ai/chat/*` (AI Copilot conversations grounded in backend sales data) |
 | `/ai-assistant` | `/ai/*`, `/decision/next-action` (lead scoring and predictions) |
+
+The Load page shows data quality measured from an uploaded Excel workbook
+alongside its preview, including row validation and per-column completeness.
+This upload-specific report does not redirect to the system-wide quality view.
 
 ## What the data does and does not contain
 

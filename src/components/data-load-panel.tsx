@@ -10,6 +10,7 @@ import {
   Eye,
   FileSpreadsheet,
   LoaderCircle,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
 
@@ -27,11 +28,38 @@ interface LoadRequest {
   content: string;
 }
 
+interface PipelineLoadRequest {
+  file_name: string;
+  content_base64: string;
+}
+
+interface PipelineEffect {
+  dataset_name: string;
+  current_count: number;
+  insert_count: number;
+  update_count: number;
+  skip_count: number;
+}
+
+interface PipelineWorkbookQuality {
+  inspected_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  fields_with_missing_values: number;
+  field_completeness: {
+    field: string;
+    populated_count: number;
+    missing_count: number;
+    completeness: number;
+  }[];
+}
+
 interface PreviewRow {
   row: number;
   action: "insert" | "update" | "skip" | "invalid";
   key: string | null;
   issues: string[];
+  details?: Record<string, string | number | null>;
 }
 
 interface LoadPreview {
@@ -46,6 +74,17 @@ interface LoadPreview {
   replace_delete_count: number;
   replace_blocked_count: number;
   replace_blocked_reason: string | null;
+  preview_rows: PreviewRow[];
+  pipeline_effects?: PipelineEffect[];
+  pipeline_quality?: PipelineWorkbookQuality;
+}
+
+interface PipelineWorkbookPreviewResult {
+  file_name: string;
+  row_count: number;
+  invalid_count: number;
+  quality: PipelineWorkbookQuality;
+  effects: PipelineEffect[];
   preview_rows: PreviewRow[];
 }
 
@@ -63,6 +102,7 @@ interface LoadJob {
 type LoadMode = "merge" | "append" | "replace";
 
 const DATASET_LABELS: Record<string, string> = {
+  pipeline_workbook: "Full pipeline workbook",
   customers: "Customers / Accounts",
   leads: "Leads",
   products: "Products",
@@ -78,6 +118,7 @@ const DATASET_LABELS: Record<string, string> = {
 };
 
 const DATASET_LINKS: Record<string, string> = {
+  pipeline_workbook: "/leads",
   customers: "/accounts",
   leads: "/leads",
   products: "/analytics",
@@ -113,13 +154,50 @@ async function requestJson<T>(path: string, body?: unknown): Promise<T> {
   return payload as T;
 }
 
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function toPipelinePreview(result: PipelineWorkbookPreviewResult): LoadPreview {
+  const totals = result.effects.reduce(
+    (sum, effect) => ({
+      current_count: sum.current_count + effect.current_count,
+      insert_count: sum.insert_count + effect.insert_count,
+      update_count: sum.update_count + effect.update_count,
+      skip_count: sum.skip_count + effect.skip_count,
+    }),
+    { current_count: 0, insert_count: 0, update_count: 0, skip_count: 0 },
+  );
+  return {
+    dataset_name: "pipeline_workbook",
+    file_name: result.file_name,
+    row_count: result.row_count,
+    current_count: totals.current_count,
+    insert_count: totals.insert_count,
+    update_count: totals.update_count,
+    skip_count: totals.skip_count,
+    invalid_count: result.invalid_count,
+    replace_delete_count: 0,
+    replace_blocked_count: 1,
+    replace_blocked_reason: "Replace is disabled for full pipeline workbooks to protect records outside this file.",
+    preview_rows: result.preview_rows,
+    pipeline_effects: result.effects,
+    pipeline_quality: result.quality,
+  };
+}
+
 export function DataLoadPanel() {
   const [datasets, setDatasets] = useState<LoadDataset[]>([]);
   const [history, setHistory] = useState<LoadJob[]>([]);
   const [datasetName, setDatasetName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
-  const [payload, setPayload] = useState<LoadRequest | null>(null);
+  const [payload, setPayload] = useState<LoadRequest | PipelineLoadRequest | null>(null);
   const [preview, setPreview] = useState<LoadPreview | null>(null);
   const [mode, setMode] = useState<LoadMode>("merge");
   const [isLoading, setIsLoading] = useState(true);
@@ -155,10 +233,22 @@ export function DataLoadPanel() {
 
   const selectedDataset = datasets.find((dataset) => dataset.name === datasetName);
   const canApply = preview !== null && preview.invalid_count === 0;
+  const matchingCount = preview?.pipeline_effects
+    ? mode === "append"
+      ? preview.pipeline_effects.find((effect) => effect.dataset_name === "leads")?.skip_count ?? 0
+      : preview.update_count
+    : preview?.update_count ?? 0;
   const mergeDescription = useMemo(() => {
     if (!preview) return null;
     return `${preview.insert_count} new, ${preview.update_count} matching`;
   }, [preview]);
+  const missingQualityFields = useMemo(
+    () =>
+      (preview?.pipeline_quality?.field_completeness ?? [])
+        .filter((field) => field.missing_count > 0)
+        .sort((left, right) => right.missing_count - left.missing_count),
+    [preview],
+  );
 
   const handlePreview = async () => {
     if (!file || !datasetName || isPreviewing) return;
@@ -171,11 +261,31 @@ export function DataLoadPanel() {
         throw new Error("Choose a file smaller than 10 MB.");
       }
       const extension = file.name.split(".").pop()?.toLowerCase();
+      if (extension === "xlsx") {
+        const nextPayload: PipelineLoadRequest = {
+          file_name: file.name,
+          content_base64: toBase64(new Uint8Array(await file.arrayBuffer())),
+        };
+        const result = await requestJson<PipelineWorkbookPreviewResult>(
+          "/api/data/load/pipeline/preview",
+          { ...nextPayload, mode },
+        );
+        setPayload(nextPayload);
+        setPreview(toPipelinePreview(result));
+        setDatasetName("pipeline_workbook");
+        setMode("merge");
+        return;
+      }
       if (extension !== "csv" && extension !== "json") {
-        throw new Error("Choose a CSV or JSON file.");
+        throw new Error("Choose an .xlsx pipeline workbook, CSV, or JSON file.");
+      }
+      if (datasetName === "pipeline_workbook") {
+        setDatasetName(datasets[0]?.name ?? "");
       }
       const nextPayload: LoadRequest = {
-        dataset_name: datasetName,
+        dataset_name: datasetName === "pipeline_workbook"
+          ? datasets[0]?.name ?? ""
+          : datasetName,
         file_name: file.name,
         file_format: extension,
         content: await file.text(),
@@ -193,12 +303,34 @@ export function DataLoadPanel() {
     }
   };
 
+  const selectMode = async (nextMode: LoadMode) => {
+    setMode(nextMode);
+    if (!preview?.pipeline_effects || !payload || !("content_base64" in payload)) return;
+    setError(null);
+    setIsPreviewing(true);
+    try {
+      const result = await requestJson<PipelineWorkbookPreviewResult>(
+        "/api/data/load/pipeline/preview",
+        { ...payload, mode: nextMode },
+      );
+      setPreview(toPipelinePreview(result));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not update the preview.");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
   const handleApply = async () => {
     if (!payload || !canApply || isApplying) return;
     if (
       mode === "replace" &&
       !window.confirm(
-        `Replace ${DATASET_LABELS[payload.dataset_name] ?? payload.dataset_name}? ${preview?.replace_delete_count ?? 0} existing record(s) not present in the file will be removed.`,
+        `Replace ${
+          "dataset_name" in payload
+            ? DATASET_LABELS[payload.dataset_name] ?? payload.dataset_name
+            : "pipeline workbook"
+        }? ${preview?.replace_delete_count ?? 0} existing record(s) not present in the file will be removed.`,
       )
     ) {
       return;
@@ -207,16 +339,30 @@ export function DataLoadPanel() {
     setSuccess(null);
     setIsApplying(true);
     try {
-      const result = await requestJson<{
-        mode: LoadMode;
-        inserted_count: number;
-        updated_count: number;
-        skipped_count: number;
-        deleted_count: number;
-      }>("/api/data/load/apply", { ...payload, mode });
-      setSuccess(
-        `${result.mode} complete: ${result.inserted_count} added, ${result.updated_count} updated, ${result.skipped_count} skipped, ${result.deleted_count} removed.`,
-      );
+      if ("content_base64" in payload) {
+        const result = await requestJson<{
+          mode: LoadMode;
+          row_count: number;
+          effects: PipelineEffect[];
+        }>("/api/data/load/pipeline/apply", { ...payload, mode });
+        setSuccess(
+          `${result.mode} complete for ${result.row_count} workbook rows: ${result.effects
+            .filter((effect) => effect.insert_count > 0 || effect.update_count > 0)
+            .map((effect) => `${effect.dataset_name}: ${effect.insert_count} added, ${effect.update_count} updated`)
+            .join("; ")}.`,
+        );
+      } else {
+        const result = await requestJson<{
+          mode: LoadMode;
+          inserted_count: number;
+          updated_count: number;
+          skipped_count: number;
+          deleted_count: number;
+        }>("/api/data/load/apply", { ...payload, mode });
+        setSuccess(
+          `${result.mode} complete: ${result.inserted_count} added, ${result.updated_count} updated, ${result.skipped_count} skipped, ${result.deleted_count} removed.`,
+        );
+      }
       setPreview(null);
       setPayload(null);
       setFile(null);
@@ -268,22 +414,22 @@ export function DataLoadPanel() {
             Load data
           </h1>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500">
-            Preview changes before applying a CSV or JSON dataset. Imported
-            records feed the matching sections throughout the application.
+            Preview changes before applying a full Excel pipeline workbook or
+            an individual CSV/JSON dataset.
           </p>
         </div>
         <Link
-          href="/system"
+          href={preview?.pipeline_quality ? "#upload-data-quality" : "#import-dataset"}
           className="text-xs font-medium text-blue-700 hover:text-blue-800"
         >
-          View data quality
+          {preview?.pipeline_quality ? "View upload data quality" : "Check upload data quality"}
         </Link>
       </header>
 
       {error ? <Notice tone="error" message={error} /> : null}
       {success ? <Notice tone="success" message={success} /> : null}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
+      <section id="import-dataset" className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-center gap-2">
           <Upload className="h-4 w-4 text-blue-600" />
           <h2 className="text-sm font-semibold text-slate-900">Import a dataset</h2>
@@ -307,8 +453,15 @@ export function DataLoadPanel() {
                   {DATASET_LABELS[dataset.name] ?? dataset.name}
                 </option>
               ))}
+              <option value="pipeline_workbook">Full pipeline workbook (.xlsx)</option>
             </select>
-            {selectedDataset ? (
+            {datasetName === "pipeline_workbook" ? (
+              <span className="mt-1.5 block leading-relaxed text-slate-500">
+                Imports the workbook’s source rows into linked customers,
+                products, campaigns, leads, calls, tasks, follow-ups, and
+                activity. Replace is disabled to protect data outside the file.
+              </span>
+            ) : selectedDataset ? (
               <>
                 <span className="mt-1.5 block leading-relaxed text-slate-500">
                   Matches records by <code>{selectedDataset.match_field}</code>.
@@ -335,35 +488,45 @@ export function DataLoadPanel() {
           <div>
             <label className="block text-xs">
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                CSV or JSON file
+                Excel workbook, CSV or JSON file
               </span>
               <input
                 key={fileInputKey}
                 type="file"
-                accept=".csv,.json,text/csv,application/json"
+                accept=".xlsx,.csv,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/json"
                 onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null);
+                  const selectedFile = event.target.files?.[0] ?? null;
+                  setFile(selectedFile);
                   setPayload(null);
                   setPreview(null);
                   setSuccess(null);
+                  const extension = selectedFile?.name.split(".").pop()?.toLowerCase();
+                  if (extension === "xlsx") {
+                    setDatasetName("pipeline_workbook");
+                    setMode("merge");
+                  } else if (datasetName === "pipeline_workbook") {
+                    setDatasetName(datasets[0]?.name ?? "");
+                  }
                 }}
                 className="block w-full rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-600 file:mr-3 file:border-0 file:border-r file:border-slate-200 file:bg-white file:px-3 file:py-2 file:text-xs file:font-medium file:text-slate-700"
               />
             </label>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-[10px] text-slate-400">
-                Max 10 MB · blank optional fields are allowed · unknown columns
-                are retained as custom fields
+                Max 10 MB · .xlsx previews the full pipeline; CSV/JSON loads
+                one selected section
               </span>
-              <button
-                type="button"
-                onClick={downloadTemplate}
-                disabled={!selectedDataset}
-                className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 hover:text-blue-800 disabled:text-slate-300"
-              >
-                <Download className="h-3 w-3" />
-                Download template
-              </button>
+              {datasetName !== "pipeline_workbook" ? (
+                <button
+                  type="button"
+                  onClick={downloadTemplate}
+                  disabled={!selectedDataset}
+                  className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 hover:text-blue-800 disabled:text-slate-300"
+                >
+                  <Download className="h-3 w-3" />
+                  Download template
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -413,12 +576,103 @@ export function DataLoadPanel() {
             <Metric label="New records" value={preview.insert_count} tone="blue" />
             <Metric
               label={mode === "append" ? "Duplicates skipped" : "Matching records"}
-              value={preview.update_count}
+              value={matchingCount}
               tone="amber"
             />
             <Metric label="Invalid rows" value={preview.invalid_count} tone={preview.invalid_count ? "rose" : "slate"} />
             <Metric label="Removed on replace" value={preview.replace_delete_count} tone={preview.replace_delete_count ? "rose" : "slate"} />
           </div>
+
+          {preview.pipeline_quality ? (
+            <section
+              id="upload-data-quality"
+              aria-labelledby="upload-data-quality-heading"
+              className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4"
+            >
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                <div>
+                  <h3 id="upload-data-quality-heading" className="text-xs font-semibold text-slate-900">
+                    Data quality in this workbook
+                  </h3>
+                  <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                    Measured from the uploaded rows before import. Blank cells are reported here;
+                    optional blanks do not block an import.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Metric
+                  label="Rows reviewed"
+                  value={preview.pipeline_quality.inspected_rows}
+                  tone="blue"
+                />
+                <Metric
+                  label="Valid rows"
+                  value={preview.pipeline_quality.valid_rows}
+                  tone="blue"
+                />
+                <Metric
+                  label="Invalid rows"
+                  value={preview.pipeline_quality.invalid_rows}
+                  tone={preview.pipeline_quality.invalid_rows ? "rose" : "slate"}
+                />
+                <Metric
+                  label="Fields with blanks"
+                  value={preview.pipeline_quality.fields_with_missing_values}
+                  tone={preview.pipeline_quality.fields_with_missing_values ? "amber" : "slate"}
+                />
+              </div>
+              {missingQualityFields.length ? (
+                <>
+                  <FieldQualityTable fields={missingQualityFields.slice(0, 8)} />
+                  {preview.pipeline_quality.field_completeness.length > 8 ? (
+                    <details className="text-[10px] text-slate-600">
+                      <summary className="cursor-pointer font-medium text-blue-700">
+                        Show all {preview.pipeline_quality.field_completeness.length} workbook fields
+                      </summary>
+                      <div className="mt-2">
+                        <FieldQualityTable fields={preview.pipeline_quality.field_completeness} />
+                      </div>
+                    </details>
+                  ) : null}
+                </>
+              ) : (
+                <p className="rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-[10px] text-emerald-800">
+                  All workbook fields are populated.
+                </p>
+              )}
+            </section>
+          ) : null}
+
+          {preview.pipeline_effects ? (
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full min-w-[560px] text-left text-xs">
+                <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2">Pipeline section</th>
+                    <th className="px-3 py-2">Current</th>
+                    <th className="px-3 py-2">Will add</th>
+                    <th className="px-3 py-2">Will update</th>
+                    <th className="px-3 py-2">Will skip</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {preview.pipeline_effects.map((effect) => (
+                    <tr key={effect.dataset_name}>
+                      <td className="px-3 py-2 font-medium capitalize text-slate-700">
+                        {DATASET_LABELS[effect.dataset_name] ?? effect.dataset_name.replaceAll("_", " ")}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-slate-600">{effect.current_count.toLocaleString()}</td>
+                      <td className="px-3 py-2 tabular-nums text-blue-700">{effect.insert_count.toLocaleString()}</td>
+                      <td className="px-3 py-2 tabular-nums text-amber-700">{effect.update_count.toLocaleString()}</td>
+                      <td className="px-3 py-2 tabular-nums text-slate-500">{effect.skip_count.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
 
           {preview.replace_blocked_count > 0 ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
@@ -435,11 +689,12 @@ export function DataLoadPanel() {
           ) : null}
 
           <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
-            <table className="w-full min-w-[560px] text-left text-xs">
+            <table className="w-full min-w-[760px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Row</th>
-                  <th className="px-3 py-2">Match key</th>
+                  <th className="px-3 py-2">Customer</th>
+                  <th className="px-3 py-2">Product · Campaign · Lead status</th>
                   <th className="px-3 py-2">Action</th>
                   <th className="px-3 py-2">Validation</th>
                 </tr>
@@ -448,8 +703,13 @@ export function DataLoadPanel() {
                 {preview.preview_rows.map((row) => (
                   <tr key={row.row}>
                     <td className="px-3 py-2 tabular-nums text-slate-500">{row.row}</td>
-                    <td className="max-w-56 truncate px-3 py-2 font-mono text-[11px] text-slate-600">
+                    <td className="max-w-40 truncate px-3 py-2 font-mono text-[11px] text-slate-600">
                       {row.key ?? "—"}
+                    </td>
+                    <td className="max-w-80 truncate px-3 py-2 text-slate-600">
+                      {row.details
+                        ? `${row.details.product ?? ""} · ${row.details.campaign ?? ""} · ${row.details.lead_status ?? ""}`
+                        : "—"}
                     </td>
                     <td className="px-3 py-2 capitalize text-slate-700">
                       {mode === "append" && row.action === "update" ? "skip" : row.action}
@@ -463,26 +723,30 @@ export function DataLoadPanel() {
             </table>
           </div>
 
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className={`grid gap-2 ${preview.pipeline_effects ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
             <ModeButton
               selected={mode === "merge"}
               title="Merge"
               description={`${mergeDescription ?? "Add new and update matching"}; blank optional fields preserve existing values.`}
-              onClick={() => setMode("merge")}
+              onClick={() => void selectMode("merge")}
+              disabled={isPreviewing}
             />
             <ModeButton
               selected={mode === "append"}
               title="Append"
               description="Add new records only; skip rows with a matching key."
-              onClick={() => setMode("append")}
+              onClick={() => void selectMode("append")}
+              disabled={isPreviewing}
             />
-            <ModeButton
-              selected={mode === "replace"}
-              title="Replace"
-              description={`Make this dataset match the file; ${preview.replace_delete_count} unlisted record(s) will be removed.`}
-              onClick={() => setMode("replace")}
-              disabled={preview.replace_blocked_count > 0}
-            />
+            {!preview.pipeline_effects ? (
+              <ModeButton
+                selected={mode === "replace"}
+                title="Replace"
+                description={`Make this dataset match the file; ${preview.replace_delete_count} unlisted record(s) will be removed.`}
+                onClick={() => setMode("replace")}
+                disabled={preview.replace_blocked_count > 0}
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-col justify-between gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center">
@@ -559,6 +823,43 @@ export function DataLoadPanel() {
           <p className="text-xs text-slate-500">Applied imports will appear here.</p>
         )}
       </section>
+    </div>
+  );
+}
+
+function FieldQualityTable({
+  fields,
+}: {
+  fields: PipelineWorkbookQuality["field_completeness"];
+}) {
+  return (
+    <div className="max-h-64 overflow-auto rounded-md border border-slate-200 bg-white">
+      <table className="w-full min-w-[420px] text-left text-[10px]">
+        <thead className="sticky top-0 bg-slate-100 uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="px-2.5 py-2">Workbook field</th>
+            <th className="px-2.5 py-2 text-right">Populated</th>
+            <th className="px-2.5 py-2 text-right">Missing</th>
+            <th className="px-2.5 py-2 text-right">Complete</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {fields.map((field) => (
+            <tr key={field.field}>
+              <td className="px-2.5 py-1.5 font-mono text-slate-700">{field.field}</td>
+              <td className="px-2.5 py-1.5 text-right tabular-nums text-slate-600">
+                {field.populated_count.toLocaleString()}
+              </td>
+              <td className="px-2.5 py-1.5 text-right tabular-nums text-amber-700">
+                {field.missing_count.toLocaleString()}
+              </td>
+              <td className="px-2.5 py-1.5 text-right tabular-nums text-slate-600">
+                {Math.round(field.completeness * 100)}%
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
