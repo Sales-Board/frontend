@@ -243,7 +243,22 @@ export function AIAgentChat() {
     <section className="flex h-full min-h-[430px] overflow-hidden rounded-xl bg-white">
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex min-h-14 items-center justify-between gap-3 border-b border-slate-200 px-3 sm:px-4">
-          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold text-slate-900">
+                AI Copilot
+              </h2>
+              <p className="truncate text-[10px] text-slate-500">
+                {conversationId === null
+                  ? "New chat"
+                  : conversations.find((item) => item.id === conversationId)?.title ?? "Saved chat"}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <AIChatHistory
               conversations={conversations}
               conversationId={conversationId}
@@ -257,25 +272,11 @@ export function AIAgentChat() {
               onClick={startNewChat}
               aria-label="Start a new chat"
               title="New chat"
-              className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-slate-500 transition hover:bg-slate-100"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden text-xs sm:inline">New chat</span>
             </button>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <h2 className="truncate text-sm font-semibold text-slate-900">
-              {conversationId === null
-                ? "New chat"
-                : conversations.find((item) => item.id === conversationId)?.title ?? "Saved chat"}
-            </h2>
           </div>
-          <AIChatModelPicker
-            models={models}
-            modelId={modelId}
-            onChange={setModelId}
-          />
         </header>
 
         <div className="flex-1 overflow-y-auto px-3 sm:px-6">
@@ -387,9 +388,16 @@ export function AIAgentChat() {
                 )}
               </button>
             </form>
-            <p className="mt-2 text-center text-[10px] text-slate-400">
-              {selectedModel?.name ?? "Select a model"} · Review AI-generated answers
-            </p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <p className="text-left text-[10px] text-slate-400">
+                Review AI-generated answers
+              </p>
+              <AIChatModelPicker
+                models={models}
+                modelId={modelId}
+                onChange={setModelId}
+              />
+            </div>
           </div>
         </div>
       </div>

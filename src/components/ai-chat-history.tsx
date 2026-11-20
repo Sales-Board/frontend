@@ -130,19 +130,20 @@ export function AIChatHistory({
         <button
           type="button"
           onClick={() => setIsDropdownOpen((open) => !open)}
+          aria-label="Conversation history"
+          title="Conversation history"
           aria-expanded={isDropdownOpen}
           aria-haspopup="menu"
-          className="flex h-9 items-center gap-2 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
         >
           <History className="h-4 w-4" />
-          <span className="hidden sm:inline">History</span>
         </button>
 
         {isDropdownOpen ? (
           <div
             role="menu"
             aria-label="Recent conversations"
-            className="absolute left-0 top-full z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+            className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
           >
             <div className="flex items-center justify-between px-2 py-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
